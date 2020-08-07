@@ -9,8 +9,14 @@ import {
     readdir,
     readFile,
     lstat,
+    openSync,
+    readSync,
+    closeSync,
+    createReadStream,
 } from "fs";
 import { promisify } from "util";
+
+const BUFFER_SIZE = 8192;
 
 const statAsync = promisify(stat);
 const readdirAsync = promisify(readdir);
@@ -459,8 +465,16 @@ function _scan(
                 dirTree.size = options.size ? parseSize(size) : undefined;
             }
             if (options.hash) {
-                let data: Buffer;
+                let data: Buffer = Buffer.alloc(BUFFER_SIZE);
+                let fd: number;
                 try {
+                    fd = openSync(path, "r");
+                    let bytesRead;
+
+                    do {
+                        bytesRead = readSync(fd, data, 0, BUFFER_SIZE, null);
+                        hash.update(data.slice(0, bytesRead));
+                    } while (bytesRead === BUFFER_SIZE);
                     data = readFileSync(path);
                 } catch (exception) {
                     /* istanbul ignore next */
@@ -469,8 +483,9 @@ function _scan(
                     } else {
                         throw exception;
                     }
+                } finally {
+                    closeSync(fd);
                 }
-                hash.update(data);
                 const hashEncoding = options.hashEncoding as HexBase64Latin1Encoding;
                 dirTree.hash = hash.digest(hashEncoding);
             }
@@ -639,9 +654,18 @@ async function _scanAsync(
                 dirTree.size = options.size ? parseSize(size) : undefined;
             }
             if (options.hash) {
-                let data: Buffer;
                 try {
-                    data = await readFileAsync(path);
+                    const data = createReadStream(path);
+                    data.on("error", (err) => {
+                        throw err;
+                    });
+                    data.pipe(hash);
+                    await new Promise((res, rej) => {
+                        hash.once("readable", () => {
+                            dirTree.hash = hash.digest(options.hashEncoding);
+                            res();
+                        });
+                    });
                 } catch (exception) {
                     /* istanbul ignore next */
                     if (options.skipErrors) {
@@ -650,9 +674,6 @@ async function _scanAsync(
                         throw exception;
                     }
                 }
-                hash.update(data);
-                const hashEncoding = options.hashEncoding as HexBase64Latin1Encoding;
-                dirTree.hash = hash.digest(hashEncoding);
             }
             break;
         default:
