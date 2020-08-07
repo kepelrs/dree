@@ -250,4 +250,5 @@ export declare function parseTree(dirTree: Dree, options?: ParseOptions): string
  * @return {Promise<string>} A promise to a string representing the object given as first parameter
  */
 export declare function parseTreeAsync(dirTree: Dree, options?: ParseOptions): Promise<string>;
+export declare function hashLargeFileAsync(path: string, hash: any, dirTree: Dree, options: ScanOptions): Promise<void>;
 export {};

@@ -654,18 +654,16 @@ async function _scanAsync(
                 dirTree.size = options.size ? parseSize(size) : undefined;
             }
             if (options.hash) {
+                const size = lstat?.size || stat?.size;
+                const fileIsLarge = size > 2147483647;
+                let data: Buffer;
+
                 try {
-                    const data = createReadStream(path);
-                    data.on("error", (err) => {
-                        throw err;
-                    });
-                    data.pipe(hash);
-                    await new Promise((res, rej) => {
-                        hash.once("readable", () => {
-                            dirTree.hash = hash.digest(options.hashEncoding);
-                            res();
-                        });
-                    });
+                    if (fileIsLarge) {
+                        await hashLargeFileAsync(path, hash, dirTree, options);
+                    } else {
+                        data = await readFileAsync(path);
+                    }
                 } catch (exception) {
                     /* istanbul ignore next */
                     if (options.skipErrors) {
@@ -673,6 +671,12 @@ async function _scanAsync(
                     } else {
                         throw exception;
                     }
+                }
+
+                if (!fileIsLarge) {
+                    hash.update(data);
+                    const hashEncoding = options.hashEncoding as HexBase64Latin1Encoding;
+                    dirTree.hash = hash.digest(hashEncoding);
                 }
             }
             break;
@@ -1188,4 +1192,23 @@ export async function parseTreeAsync(
         ? await _parseTreeAsync(dirTree.children, "\n ", opt, 1)
         : "";
     return result;
+}
+
+export async function hashLargeFileAsync(
+    path: string,
+    hash: any,
+    dirTree: Dree,
+    options: ScanOptions
+) {
+    const data = createReadStream(path);
+    data.on("error", (err) => {
+        throw err;
+    });
+    data.pipe(hash);
+    await new Promise((res, rej) => {
+        hash.once("readable", () => {
+            dirTree.hash = hash.digest(options.hashEncoding);
+            res();
+        });
+    });
 }

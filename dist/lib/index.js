@@ -295,7 +295,7 @@ function _scan(root, path, depth, options, onFile, onDir) {
 }
 function _scanAsync(root, path, depth, options, onFile, onDir) {
     return __awaiter(this, void 0, void 0, function () {
-        var excludes, relativePath, name, stat, exception_1, lstat, exception_2, symbolicLink, type, hash, hashAlgorithm, dirTree, _a, children_2, files, exception_3, size, hashEncoding, size, data, exception_4;
+        var excludes, relativePath, name, stat, exception_1, lstat, exception_2, symbolicLink, type, hash, hashAlgorithm, dirTree, _a, children_2, files, exception_3, size, hashEncoding, size, size, fileIsLarge, data, exception_4, hashEncoding;
         var _this = this;
         return __generator(this, function (_b) {
             switch (_b.label) {
@@ -375,7 +375,7 @@ function _scanAsync(root, path, depth, options, onFile, onDir) {
                         case Type.DIRECTORY: return [3 /*break*/, 8];
                         case Type.FILE: return [3 /*break*/, 15];
                     }
-                    return [3 /*break*/, 20];
+                    return [3 /*break*/, 24];
                 case 8:
                     children_2 = [];
                     files = void 0;
@@ -442,7 +442,7 @@ function _scanAsync(root, path, depth, options, onFile, onDir) {
                     if (children_2.length) {
                         dirTree.children = children_2;
                     }
-                    return [3 /*break*/, 21];
+                    return [3 /*break*/, 25];
                 case 15:
                     dirTree.extension = path_1.extname(path).replace(".", "");
                     if (options.extensions &&
@@ -454,25 +454,24 @@ function _scanAsync(root, path, depth, options, onFile, onDir) {
                         dirTree.sizeInBytes = size;
                         dirTree.size = options.size ? parseSize(size) : undefined;
                     }
-                    if (!options.hash) return [3 /*break*/, 19];
+                    if (!options.hash) return [3 /*break*/, 23];
+                    size = (lstat === null || lstat === void 0 ? void 0 : lstat.size) || (stat === null || stat === void 0 ? void 0 : stat.size);
+                    fileIsLarge = size > 2147483647;
+                    data = void 0;
                     _b.label = 16;
                 case 16:
-                    _b.trys.push([16, 18, , 19]);
-                    data = fs_1.createReadStream(path);
-                    data.on("error", function (err) {
-                        throw err;
-                    });
-                    data.pipe(hash);
-                    return [4 /*yield*/, new Promise(function (res, rej) {
-                            hash.once("readable", function () {
-                                dirTree.hash = hash.digest(options.hashEncoding);
-                                res();
-                            });
-                        })];
+                    _b.trys.push([16, 21, , 22]);
+                    if (!fileIsLarge) return [3 /*break*/, 18];
+                    return [4 /*yield*/, hashLargeFileAsync(path, hash, dirTree, options)];
                 case 17:
                     _b.sent();
-                    return [3 /*break*/, 19];
-                case 18:
+                    return [3 /*break*/, 20];
+                case 18: return [4 /*yield*/, readFileAsync(path)];
+                case 19:
+                    data = _b.sent();
+                    _b.label = 20;
+                case 20: return [3 /*break*/, 22];
+                case 21:
                     exception_4 = _b.sent();
                     /* istanbul ignore next */
                     if (options.skipErrors) {
@@ -481,12 +480,19 @@ function _scanAsync(root, path, depth, options, onFile, onDir) {
                     else {
                         throw exception_4;
                     }
-                    return [3 /*break*/, 19];
-                case 19: return [3 /*break*/, 21];
-                case 20: 
+                    return [3 /*break*/, 22];
+                case 22:
+                    if (!fileIsLarge) {
+                        hash.update(data);
+                        hashEncoding = options.hashEncoding;
+                        dirTree.hash = hash.digest(hashEncoding);
+                    }
+                    _b.label = 23;
+                case 23: return [3 /*break*/, 25];
+                case 24: 
                 /* istanbul ignore next */
                 return [2 /*return*/, null];
-                case 21:
+                case 25:
                     if (onFile && type === Type.FILE) {
                         onFile(dirTree, options.followLinks ? stat : lstat);
                     }
@@ -1041,4 +1047,29 @@ function parseTreeAsync(dirTree, options) {
     });
 }
 exports.parseTreeAsync = parseTreeAsync;
+function hashLargeFileAsync(path, hash, dirTree, options) {
+    return __awaiter(this, void 0, void 0, function () {
+        var data;
+        return __generator(this, function (_a) {
+            switch (_a.label) {
+                case 0:
+                    data = fs_1.createReadStream(path);
+                    data.on("error", function (err) {
+                        throw err;
+                    });
+                    data.pipe(hash);
+                    return [4 /*yield*/, new Promise(function (res, rej) {
+                            hash.once("readable", function () {
+                                dirTree.hash = hash.digest(options.hashEncoding);
+                                res();
+                            });
+                        })];
+                case 1:
+                    _a.sent();
+                    return [2 /*return*/];
+            }
+        });
+    });
+}
+exports.hashLargeFileAsync = hashLargeFileAsync;
 //# sourceMappingURL=index.js.map
