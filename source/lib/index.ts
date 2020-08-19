@@ -646,7 +646,7 @@ async function _scanAsync(
             if (options.hash) {
                 let data: string;
                 try {
-                    data = await hashFile(path);
+                    data = await hashFile(dirTree);
                 } catch (exception) {
                     /* istanbul ignore next */
                     if (options.skipErrors) {
@@ -1174,13 +1174,12 @@ export async function parseTreeAsync(
     return result;
 }
 
-const hashFile = async (path, threshold = 128 * 1024) => {
-    // get file size
-    const stat = promises.stat(path);
-    const size = (await stat).size;
+const hashFile = async (dirTree: Dree, threshold = 128 * 1024) => {
+    const path = dirTree.path
+    const size = dirTree.sizeInBytes;
 
     // if smaller than threshold, hash the entire file
-    if (size < threshold) {
+    if (!size || size < threshold) {
         return hashPortion(path);
     }
 

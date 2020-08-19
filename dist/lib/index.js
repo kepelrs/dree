@@ -449,7 +449,7 @@ function _scanAsync(root, path, depth, options, onFile, onDir) {
                     _b.label = 16;
                 case 16:
                     _b.trys.push([16, 18, , 19]);
-                    return [4 /*yield*/, hashFile(path)];
+                    return [4 /*yield*/, hashFile(dirTree)];
                 case 17:
                     data = _b.sent();
                     return [3 /*break*/, 19];
@@ -1027,37 +1027,35 @@ function parseTreeAsync(dirTree, options) {
     });
 }
 exports.parseTreeAsync = parseTreeAsync;
-var hashFile = function (path, threshold) {
+var hashFile = function (dirTree, threshold) {
     if (threshold === void 0) { threshold = 128 * 1024; }
     return __awaiter(void 0, void 0, void 0, function () {
-        var stat, size, chunkSize, startHash, midStart, middleHash, endHash, output;
+        var path, size, chunkSize, startHash, midStart, middleHash, endHash, output;
         return __generator(this, function (_a) {
             switch (_a.label) {
                 case 0:
-                    stat = fs_1.promises.stat(path);
-                    return [4 /*yield*/, stat];
-                case 1:
-                    size = (_a.sent()).size;
+                    path = dirTree.path;
+                    size = dirTree.sizeInBytes;
                     // if smaller than threshold, hash the entire file
-                    if (size < threshold) {
+                    if (!size || size < threshold) {
                         return [2 /*return*/, hashPortion(path)];
                     }
                     chunkSize = Math.floor(threshold / 3);
                     return [4 /*yield*/, hashPortion(path, { start: 0, end: chunkSize })];
-                case 2:
+                case 1:
                     startHash = _a.sent();
                     midStart = Math.floor(size / 2);
                     return [4 /*yield*/, hashPortion(path, {
                             start: midStart,
                             end: midStart + chunkSize,
                         })];
-                case 3:
+                case 2:
                     middleHash = _a.sent();
                     return [4 /*yield*/, hashPortion(path, {
                             start: size - chunkSize,
                             end: undefined,
                         })];
-                case 4:
+                case 3:
                     endHash = _a.sent();
                     output = crypto_1.createHash("md5");
                     output.update(startHash + middleHash + endHash);
